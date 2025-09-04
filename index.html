@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Chatbox OpenRouter (no server)</title>
+  <title>Chatbox Demo - OpenRouter</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; display:flex; flex-direction:column; height:100vh; }
+    body { font-family: sans-serif; background:#0f172a; color:#e2e8f0; margin:0; display:flex; flex-direction:column; height:100vh; }
     .messages { flex:1; overflow:auto; padding:10px; }
     .msg { max-width:80%; margin:6px 0; padding:10px; border-radius:10px; line-height:1.4; }
     .user { background:#f1f5f9; color:#0f172a; margin-left:auto; }
@@ -22,12 +22,14 @@
     <button type="submit">Gửi</button>
   </form>
 
-  <script type="module">
+  <script>
     const messagesEl = document.getElementById('messages');
     const inputEl = document.getElementById('input');
     const form = document.getElementById('chatForm');
 
-    let history = [];
+    let history = [
+      { role: 'assistant', content: 'Xin chào 👋! Hãy hỏi tôi điều gì đó.' }
+    ];
 
     function render() {
       messagesEl.innerHTML = '';
@@ -44,25 +46,36 @@
       history.push({ role: 'user', content: text });
       render();
 
-      // gọi API trực tiếp
-      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": "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",   // ⚠️ Đặt API key ở đây (không an toàn)
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://anddy-json.github.io/chatbox/",  // tuỳ chọn
-          "X-Title" : "Chat"       // tuỳ chọn
-        },
-        body: JSON.stringify({
-          model: "deepseek/deepseek-r1-0528:free",
-          messages: history
-        })
-      });
-
-      const data = await resp.json();
-      const reply = data.choices?.[0]?.message?.content || "Không có phản hồi.";
-      history.push({ role: 'assistant', content: reply });
+      // thêm placeholder
+      history.push({ role: 'assistant', content: 'Đang trả lời...' });
       render();
+
+      try {
+        const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": "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",   // ⚠️ thay bằng API key thật
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://anddy-json.github.io/chatbox/",   // tùy chọn
+            "X-Title": "Chatbox Demo"             // tùy chọn
+          },
+          body: JSON.stringify({
+            model: "deepseek/deepseek-r1-0528:free",
+            messages: history.filter(h => h.role !== 'assistant' || h.content !== 'Đang trả lời...')
+          })
+        });
+
+        const data = await resp.json();
+        // xóa placeholder
+        history = history.filter(m => !(m.role === 'assistant' && m.content === 'Đang trả lời...'));
+        const reply = data?.choices?.[0]?.message?.content || "Không có phản hồi.";
+        history.push({ role: 'assistant', content: reply });
+        render();
+      } catch (err) {
+        history = history.filter(m => !(m.role === 'assistant' && m.content === 'Đang trả lời...'));
+        history.push({ role: 'assistant', content: 'Lỗi: ' + err.message });
+        render();
+      }
     }
 
     form.addEventListener('submit', e => {
@@ -73,8 +86,6 @@
       sendMessage(text);
     });
 
-    // welcome
-    history.push({ role: 'assistant', content: 'Xin chào! Hãy hỏi tôi điều gì đó.' });
     render();
   </script>
 </body>
